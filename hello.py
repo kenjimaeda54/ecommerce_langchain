@@ -14,6 +14,9 @@ load_dotenv()
 apiKeyOpenRouter = os.getenv('OPEN_ROUTER_API_KEY')
 
 
+
+#se o modelo não consegui decidier e trazer algo genrico cuidado com o docs string
+#Antes ele pergunta qual modelo do laptop dai deixei explido
 @tool
 def get_price_by_product_name(product_name: str) -> float:
     """
@@ -41,7 +44,7 @@ def  apply_discount_by_tier(price: float,tier: str) -> float:
 @traceable(name="LangChain Agent Loop")
 def run_agent(question: str):
     tools = [apply_discount_by_tier, get_price_by_product_name]
-    tool_dict = {t.name: t for t in tools}
+    tools_dict = {t.name: t for t in tools}
     llm = init_chat_model(
         model="openai/gpt-4o-mini",
         model_provider="openai",
@@ -49,6 +52,7 @@ def run_agent(question: str):
         base_url="https://openrouter.ai/api/v1",
         temperature=0,
     )
+    #bind e para fazer o modelo conhecer as ferramentas disponíveis e saber como pedir para usá-las
     llm_with_tools = llm.bind_tools(tools)
 
     messages = [
@@ -71,28 +75,35 @@ def run_agent(question: str):
 
     ]
 
-
-    for interaction in range(1,MAX_INTERACTIONS + 1):
+    for interaction in range(1, MAX_INTERACTIONS+1):
+        #pega todas mensagens ate o momento e junta com as tools
         ai_message = llm_with_tools.invoke(messages)
 
-        tools_calls = ai_message.tool_calls
+        tool_calls = ai_message.tool_calls
 
-        if not tools_calls:
+        if not tool_calls:
             return ai_message.content
 
-        tool_call = tools_calls[0]
-        tool_name =  tool_call.get("name")
+        #vou pegar o priemrio call
+
+        tool_call = tool_calls[0]
+        tool_name = tool_call.get("name")
         tool_call_id = tool_call.get("id")
-        tool_args = tool_call.get("args", {})
-
-        tool_to_use = tool_dict.get(tool_name)
-
-        if tool_to_use is None:
-            raise  ValueError(f"Tool {tool_name} not found")
-
-        observation = tool_to_use.invoke(tool_args)
+        tool_args = tool_call.get("args",{})
 
 
+        tool_use = tools_dict.get(tool_name)
+
+        if tool_use is None:
+            raise ValueError(f"Tool {tool_name} not found in {tools_dict}")
+
+
+        observation = tool_use.invoke(tool_args)
+
+
+        #o modelo não tem memória própria. A única forma dele saber "o que já aconteceu" é você reescrever
+        # isso no histórico e reenviar tudo na próxima chamada.
+        # Então cada append está literalmente registrando um fato na "memória escrita" do agente:
         messages.append(ai_message)
         messages.append(
             ToolMessage(
@@ -100,7 +111,6 @@ def run_agent(question: str):
                 tool_call_id=tool_call_id,
             )
         )
-
 
     return None
 
