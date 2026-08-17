@@ -2,7 +2,6 @@
 
 Um **agente de IA em Python** construído com [LangChain](https://www.langchain.com/) que atua como um assistente de compras. Ele usa o padrão de arquitetura **ReAct (Reasoning + Acting)** para consultar um catálogo de produtos e aplicar descontos por meio de ferramentas (tools), em vez de "inventar" respostas.
 
-> ⚠️ **Não é React.** Este projeto não usa a biblioteca de UI em JavaScript. O nome "ReAct" aqui se refere à arquitetura de agentes (Raciocínio + Ação), não ao framework front-end.
 
 ---
 
