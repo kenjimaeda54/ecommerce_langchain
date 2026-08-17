@@ -44,6 +44,9 @@ def  apply_discount_by_tier(price: float,tier: str) -> float:
 @traceable(name="LangChain Agent Loop")
 def run_agent(question: str):
     tools = [apply_discount_by_tier, get_price_by_product_name]
+    #O LangChain pega isso automaticamente do __name__ da função —
+    # você não precisa declarar nada extra pra isso existir.
+    #ou seja o nome da função
     tools_dict = {t.name: t for t in tools}
     llm = init_chat_model(
         model="openai/gpt-4o-mini",
@@ -52,8 +55,8 @@ def run_agent(question: str):
         base_url="https://openrouter.ai/api/v1",
         temperature=0,
     )
-    #bind e para fazer o modelo conhecer as ferramentas disponíveis e saber como pedir para usá-las
     llm_with_tools = llm.bind_tools(tools)
+
 
     messages = [
         SystemMessage(
@@ -75,36 +78,36 @@ def run_agent(question: str):
 
     ]
 
-    for interaction in range(1, MAX_INTERACTIONS+1):
+    for interaction in range(1, MAX_INTERACTIONS + 1):
         #pega todas mensagens ate o momento e junta com as tools
-        ai_message = llm_with_tools.invoke(messages)
+        ai_messages = llm_with_tools.invoke(messages)
 
-        tool_calls = ai_message.tool_calls
+        tools_calls = ai_messages.tool_calls
 
-        if not tool_calls:
-            return ai_message.content
+        #tools_call nunca e none por isso not
+        #pior cenario retorna []
+        if not tools_calls:
+            return ai_messages.content
 
         #vou pegar o priemrio call
 
-        tool_call = tool_calls[0]
+
+        tool_call = tools_calls[0]
         tool_name = tool_call.get("name")
         tool_call_id = tool_call.get("id")
-        tool_args = tool_call.get("args",{})
+        tool_call_args = tool_call.get("args",{ })
 
+        tool_call_use = tools_dict.get(tool_name)
 
-        tool_use = tools_dict.get(tool_name)
-
-        if tool_use is None:
+        if tool_call_use is None:
             raise ValueError(f"Tool {tool_name} not found in {tools_dict}")
 
+        observation = tool_call_use.invoke(tool_call_args)
 
-        observation = tool_use.invoke(tool_args)
-
-
-        #o modelo não tem memória própria. A única forma dele saber "o que já aconteceu" é você reescrever
+        # o modelo não tem memória própria. A única forma dele saber "o que já aconteceu" é você reescrever
         # isso no histórico e reenviar tudo na próxima chamada.
         # Então cada append está literalmente registrando um fato na "memória escrita" do agente:
-        messages.append(ai_message)
+        messages.append(ai_messages)
         messages.append(
             ToolMessage(
                 content=str(observation),
