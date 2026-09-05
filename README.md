@@ -35,6 +35,36 @@ Em vez de responder direto (o que levaria a alucinações), o agente **chama fer
 
 ---
 
+## 🧩 Como chegamos a esse código (raciocínio  passo a passo)
+
+Esta seção é um "mapa mental".
+
+### A cadeia de problemas → soluções
+
+| # | Problema observado | Decisão / Solução | Onde aparece no código |
+|---|--------------------|-------------------|--------------------------|
+| 1 | O LLM sozinho **inventa** preços (alucina) | Dar ao modelo **fontes de dados reais** → ferramentas | funções com `@tool` |
+| 2 | O modelo não chama a função sozinho | **"Apresentar"** as ferramentas a ele | `llm.bind_tools(tools)` |
+| 3 | O modelo só devolve a *intenção* de chamar, não o resultado | **Executar a função manualmente** | `tool_call_use.invoke(tool_call_args)` |
+| 4 | O modelo não tem memória entre chamadas | **Devolver o resultado** como mensagem e reenviar o histórico | `messages.append(ToolMessage(...))` |
+| 5 | Precisamos repetir até a resposta final | Criar o **loop** que intercala decisão → ação → observação | `for interaction in range(...)` |
+| 6 | O modelo pode pular etapas e errar | **Guiar o raciocínio** com regras estritas | `SystemMessage` |
+
+> 🔑 Esse encadeamento (passos 1→5) **é a própria arquitetura ReAct**. O  loop  foi feito à mão justamente para  *ver* a engrenagem por dentro. Em produção, esse mesmo esqueleto já existe pronto na LangChain (`create_tool_calling_agent` + `AgentExecutor`) — mas a lógica interna é idêntica.
+
+### Lendo o código com esse mapa na cabeça
+
+Como interpretar o `hello.py` , leia-o nesta ordem:
+
+1. **`@tool`** → "aqui são os poderes do agente" (o que ele *pode fazer* no mundo real).
+2. **`init_chat_model` + `bind_tools`** → "aqui o cérebro é ligado às ferramentas" (o que ele *sabe que pode fazer*).
+3. **`SystemMessage`** → "aqui estão as regras de comportamento" (como ele *deve raciocinar*).
+4. **`messages` + loop** → "aqui roda o ciclo Thought → Action → Observation" (a execução).
+5. **`ToolMessage`** → "aqui o resultado da ação volta para a memória" (a observação).
+
+
+---
+
 ## 🛠️ Stack / Tecnologias
 
 - **Python 3.10+** — linguagem do projeto (back-end / script de terminal)
